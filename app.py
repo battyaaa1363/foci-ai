@@ -1,50 +1,51 @@
 import streamlit as st
 import numpy as np
-from scipy.stats import poisson
 
-st.title("⚽ AI Betting Tester")
+st.title("⚽ AI Football Tip Generator")
 
-def ai_model():
-    return np.array([0.52, 0.25, 0.23])
+# --- DEMO MATCH LIST (később API-val cseréljük) ---
+matches = [
+    "Arsenal vs Chelsea",
+    "Real Madrid vs Barcelona",
+    "Bayern vs Dortmund"
+]
 
-def poisson_model(h, a):
-    home = draw = away = 0
-    for i in range(6):
-        for j in range(6):
-            p = poisson.pmf(i, h) * poisson.pmf(j, a)
-            if i > j:
-                home += p
-            elif i == j:
-                draw += p
-            else:
-                away += p
-    return np.array([home, draw, away])
+match = st.selectbox("Select match", matches)
 
-def predict():
-    ml = ai_model()
-    px = poisson_model(1.6, 1.2)
-    return (ml + px) / 2
+# --- FAKE AI (később ML + xG + odds jön ide) ---
+def ai_predict(match):
+    if "Arsenal" in match:
+        return [0.55, 0.25, 0.20]
+    if "Real" in match:
+        return [0.40, 0.30, 0.30]
+    return [0.50, 0.25, 0.25]
 
-odds_home = st.slider("Home odds", 1.2, 5.0, 2.1)
-odds_draw = st.slider("Draw odds", 1.2, 5.0, 3.2)
-odds_away = st.slider("Away odds", 1.2, 5.0, 3.5)
+def pick_tip(probs):
+    return np.argmax(probs)
 
-if st.button("RUN AI"):
-    probs = predict()
+def confidence(probs):
+    return max(probs)
 
-    st.write("Home:", round(probs[0], 2))
-    st.write("Draw:", round(probs[1], 2))
-    st.write("Away:", round(probs[2], 2))
+if st.button("GENERATE TIP"):
+    probs = ai_predict(match)
+    best = pick_tip(probs)
 
-    values = [
-        probs[0] * odds_home,
-        probs[1] * odds_draw,
-        probs[2] * odds_away
-    ]
+    tips = ["HOME WIN", "DRAW", "AWAY WIN"]
 
-    best = np.argmax(values)
+    st.subheader("📊 Prediction")
+    st.write(f"Home: {probs[0]:.2f}")
+    st.write(f"Draw: {probs[1]:.2f}")
+    st.write(f"Away: {probs[2]:.2f}")
 
-    if values[best] > 1:
-        st.success(f"🔥 VALUE BET FOUND: option {best}")
+    st.subheader("🔥 AI TIP")
+    st.success(tips[best])
+
+    conf = confidence(probs)
+
+    st.subheader("🧠 Confidence")
+    st.write(f"{conf:.2f}")
+
+    if conf > 0.5:
+        st.success("VALUE BET POSSIBILITY 🔥")
     else:
-        st.error("❌ No value bet")
+        st.warning("LOW EDGE / SKIP ❌")
