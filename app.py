@@ -1,51 +1,78 @@
 import streamlit as st
+import requests
 import numpy as np
 
-st.title("⚽ AI Football Tip Generator")
+st.title("⚽ DAILY AI FOOTBALL TIPSTER")
 
-# --- DEMO MATCH LIST (később API-val cseréljük) ---
-matches = [
-    "Arsenal vs Chelsea",
-    "Real Madrid vs Barcelona",
-    "Bayern vs Dortmund"
-]
+# -----------------------------
+# API (ingyenes demo kulcs kell később)
+# -----------------------------
+API_KEY = "YOUR_API_KEY"
+url = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
 
-match = st.selectbox("Select match", matches)
+headers = {
+    "X-RapidAPI-Key": API_KEY,
+    "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+}
 
-# --- FAKE AI (később ML + xG + odds jön ide) ---
-def ai_predict(match):
-    if "Arsenal" in match:
-        return [0.55, 0.25, 0.20]
-    if "Real" in match:
-        return [0.40, 0.30, 0.30]
-    return [0.50, 0.25, 0.25]
+# mai meccsek lekérése
+@st.cache_data
+def get_matches():
+    params = {"date": "2026-04-25"}  # MAI NAP (később auto is lehet)
+    r = requests.get(url, headers=headers, params=params)
+    data = r.json()
 
-def pick_tip(probs):
-    return np.argmax(probs)
+    matches = []
+    for m in data["response"]:
+        home = m["teams"]["home"]["name"]
+        away = m["teams"]["away"]["name"]
+        fixture_id = m["fixture"]["id"]
+        matches.append((f"{home} vs {away}", fixture_id))
 
-def confidence(probs):
-    return max(probs)
+    return matches
 
-if st.button("GENERATE TIP"):
-    probs = ai_predict(match)
-    best = pick_tip(probs)
+# -----------------------------
+# AI MODEL (egyszerűsített)
+# -----------------------------
+def ai_model(home, away):
+    # később: xG + Elo + form
+    return np.array([0.50, 0.25, 0.25])
 
-    tips = ["HOME WIN", "DRAW", "AWAY WIN"]
+def value(prob):
+    return prob * 2.0 - 1  # fake odds baseline
 
-    st.subheader("📊 Prediction")
+# -----------------------------
+# UI
+# -----------------------------
+st.subheader("📅 Today matches")
+
+matches = get_matches()
+
+if not matches:
+    st.error("No matches found (API key kell)")
+    st.stop()
+
+labels = [m[0] for m in matches]
+selected = st.selectbox("Select match", labels)
+
+match_id = dict(matches)[selected]
+
+if st.button("ANALYZE MATCH"):
+    home, away = selected.split(" vs ")
+
+    probs = ai_model(home, away)
+
+    st.write("### 📊 AI Prediction")
     st.write(f"Home: {probs[0]:.2f}")
     st.write(f"Draw: {probs[1]:.2f}")
     st.write(f"Away: {probs[2]:.2f}")
 
-    st.subheader("🔥 AI TIP")
-    st.success(tips[best])
+    best = np.argmax(probs)
+    tips = ["HOME WIN", "DRAW", "AWAY WIN"]
 
-    conf = confidence(probs)
+    st.success(f"🔥 TIP: {tips[best]}")
 
-    st.subheader("🧠 Confidence")
-    st.write(f"{conf:.2f}")
-
-    if conf > 0.5:
+    if probs[best] > 0.55:
         st.success("VALUE BET POSSIBILITY 🔥")
     else:
-        st.warning("LOW EDGE / SKIP ❌")
+        st.warning("NO EDGE / SKIP ❌")
